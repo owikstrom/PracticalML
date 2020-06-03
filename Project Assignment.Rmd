@@ -1,0 +1,83 @@
+---
+title: "Untitled"
+author: "Olov Wikstrom"
+date: "6/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Prep & Exploratory Data Analysis
+```{r import, cache=TRUE}
+fileTrain <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+fileTest <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+if(!file.exists(basename(fileTrain))){
+  download.file(fileTrain, basename(fileTrain))
+}
+
+if(!file.exists(basename(fileTest))){
+  download.file(fileTest, basename(fileTest))
+}
+
+train <- read.csv(basename(fileTrain))
+test <- read.csv(basename(fileTest))
+```
+The imported files have 160 variables and 20k observations for the training set vs 20 for the test set. The dataset contains many errors and missing data. 
+
+matrix
+test 
+covariation
+
+Imputing values
+
+pairs(classe~., data=train[,1:8])
+```{r datacheck, cache=TRUE}
+sum(complete.cases(train))/length(train$X)
+```
+
+
+```{r wrangling, cache=TRUE}
+# colClasses <- c("character","factor", "integer", "integer", "character", "factor", rep("numeric",153), "factor")
+# colClasses2 <- c("character","factor", "integer", "integer","character", "factor", rep("numeric",153), "factor")
+# test <- read.table(basename(fileTest), header=TRUE, sep=",",row.names = 1, colClasses = colClasses2, quote = "",
+
+
+# Prepare an apply to extract the columns with large proportions of NA
+errorStrings = c("NA", "#DIV/0!", "","NULL")
+apply(train, 2, function(){})
+error_count <-sapply(train[,8:159], function(x) sum(length(which(x %in% errorStrings))))
+error_count[error_count<200,]
+error_count[error_count!=0]
+
+
+
+train <- train %>% mutate(user_name=factor(user_name))
+train[,8:159] < as.numeric(train[,8:159])
+
+```
+
+## Method choice
+Applying what we learnt from the course, it will be interesting to see the efficiency of the different models. 
+
+Preprocessing?
+
+
+LM 
+rf
+boosting
+lda
+gbm boosting with trees
+gam? generalized additive model
+pca
+lasso
+
+
+combining with RF
+
+```{r pressure, echo=FALSE}
+```
+
