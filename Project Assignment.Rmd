@@ -38,25 +38,25 @@ pairs(classe~., data=train[,1:8])
 ```{r datacheck, cache=TRUE}
 sum(complete.cases(train))/length(train$X)
 ```
-
+With only 2% complete cases, lets check if the errors are localized at certain variables. Looking at the raw .csv files the errors seem to be one of 3 cases, which are stored in errorStrings.
 
 ```{r wrangling, cache=TRUE}
-# colClasses <- c("character","factor", "integer", "integer", "character", "factor", rep("numeric",153), "factor")
-# colClasses2 <- c("character","factor", "integer", "integer","character", "factor", rep("numeric",153), "factor")
-# test <- read.table(basename(fileTest), header=TRUE, sep=",",row.names = 1, colClasses = colClasses2, quote = "",
-
-
-# Prepare an apply to extract the columns with large proportions of NA
+# Prepare and apply to extract the columns with large proportions of NA
 errorStrings = c("NA", "#DIV/0!", "","NULL")
-apply(train, 2, function(){})
-error_count <-sapply(train[,8:159], function(x) sum(length(which(x %in% errorStrings))))
-error_count[error_count<200,]
-error_count[error_count!=0]
+error_count <-sapply(train[,8:159], function(x) sum(length(which(x %in% errorStrings | is.na(x)))))
+summary(error_count)
+hist(error_count)
+errCols <-names(error_count[error_count>5000])
+
+# Remove those cols
+test <- test %>% select(-errCols)
+train <- train %>% select(-errCols)
+```
+We're left with a much more manageable dataset. First 7 variables most likely also aren't relevant.
 
 
-
+```{r}
 train <- train %>% mutate(user_name=factor(user_name))
-train[,8:159] < as.numeric(train[,8:159])
 
 ```
 
