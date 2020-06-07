@@ -1,0 +1,128 @@
+---
+title: "Creating a model for evaluating training form"
+author: "Olov Wikstrom"
+date: "6/3/2020"
+output: html_document
+---
+### Executive Summary
+The purpose of the report is to build an alternate model for predicting how well certain gym exercises with a dumbbell are performed. As part of a previous study by P.C.U of Rio data was collected from motion sensors attached to wrist, arm, waist and dumbbell while performing the exercise correctly as well as in various incorrect ways. Using the same data, but alternate methods this study will compare the final model and results to the original study.  
+
+```{r setup, include=FALSE}
+library(dplyr);library(caret);library(Hmisc)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Data Prep & Exploratory Data Analysis
+The original data and study can be found [here.](groupware.les.inf.puc-rio.br/har#dataset).
+This data is imported into R for further study.
+```{r import, cache=TRUE, echo=F}
+fileTrain <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+fileTest <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+if(!file.exists(basename(fileTrain))){
+  download.file(fileTrain, basename(fileTrain))
+}
+
+if(!file.exists(basename(fileTest))){
+  download.file(fileTest, basename(fileTest))
+}
+
+train <- read.csv(basename(fileTrain))
+test <- read.csv(basename(fileTest))
+```
+The imported files have 160 variables and 20k observations for the training set vs 20 for the test set. The dataset contains many errors and missing data. As shown below, just the sensors from the belt register 38 different variables.
+
+```{r datacheck, echo=F,cache=TRUE}
+colnames(train)[grep("belt", colnames(train))]
+paste("% Complete.cases:",sum(complete.cases(train))/length(train$X))
+```
+Since only 2% of all datapoints contain complete cases lets check if the errors are localized at certain variables. Looking at the raw .csv files the errors seem to be one of 3 cases, div/0, NA and blanks. Counting the number of errors per column show how there are a large number of columns with mostly erroneous data. 
+
+```{r wrangling, cache=TRUE, message=F}
+errorStrings = c("NA", "#DIV/0!", "","NULL")
+error_count <-sapply(train[,8:159], function(x) sum(length(which(x %in% errorStrings | is.na(x)))))
+table(cut2(error_count,cuts=c(0,19000)))
+
+errCols <-names(error_count[error_count>5000])
+
+test <- test %>% select(-errCols) %>% select(-c(1:7))
+train <- train %>% select(-errCols) %>% select(-c(1:7))
+train$classe <- factor(train$classe)
+```
+After filtering out those columns and the first 7 metadata columns, we are left with a much more manageable dataset. Luckily, now we also don't have to think about imputing values.
+
+#### Cross-validation
+Cross-validation of the model will be performed by splitting the original training dataset into a validation and reduced training dataset to allow for an estimation of the out-of-sample error. The split is set to 80-20.
+```{r slice}
+set.seed(1980)
+inTrain <-createDataPartition(y=train$classe, p=.80, list=FALSE)
+validate<- train[-inTrain,]
+trainbis <-train[inTrain,]
+```
+
+#### Feature Selection
+With 52 potential prediction variables ideally we should reduce the number to something more manageable since we want to try more than one model and the large number of variables is slowing down the model generation. PCA would be an efficient method for reducing dataset, but since we're also interested in seeing the impact of individual prediction variables we need to use another method.  
+Lacking any deeper knowledge on the specific virtues/drawbacks we just settle on one included in caret, Recursive Feature Elimination. Lets try for a broad number of possible variable combination up to 52.
+
+```{r fs, cache=TRUE}
+control <- rfeControl(functions=rfFuncs, method="cv", repeats=3,verbose = FALSE)
+results <- rfe(trainbis[,1:52], trainbis[,53], sizes=c(5,10,15,20,25,30,40,50), rfeControl=control)
+```
+
+```{r}
+# summarize the results
+results
+# plot(results, type=c("g", "o"))
+```
+  
+From the output we can deduce that the optimal subset size is to include all 52 variables, but already with 10 variables it is possible to achieve close to 99% prediction rate. Interestingly the top predictors seem to be the belt sensors. Selecting a tradeoff between speed and accuracy, let's use the top 20 variables.   
+
+### Method choice
+Applying what we learnt from the course, it will be interesting to see the efficiency of the different models. Let's try a few and compare.
+
+Random Forest, rf
+Boosting, gbm
+Model based, lda
+
+combining with RF
+
+```{r models, cache=TRUE}
+# Subset the selected predictors
+predictors <- predictors(results)
+predictors <- c(predictors[1:20], "classe")
+trainmod <- trainbis %>% select(predictors, classe)
+
+modlda <- train(classe ~ ., method="lda", data=trainmod)
+modrf <- train(classe ~ ., method="rf", data=trainmod)
+modgbm <- train(classe ~ ., method="gbm", data=trainmod)
+
+```
+
+
+```{r predictions}
+predictions <- data.frame(reference =validate$classe)
+predictions$lda <- predict(modlda, validate)
+predictions$rf <- predict(modrf, validate)
+predictions$gbm <- predict(modgbm, validate)
+
+```
+
+
+
+### Results & Discussion
+
+Testing our different models against the validation set gives the following results:
+```{r plots }
+
+
+# Plot predictions vs models (table better?)
+confusionMatrix(predictions$lda, predictions$reference)
+confusionMatrix(predictions$rf, predictions$reference)
+confusionMatrix(predictions$gbm, predictions$reference)
+
+
+```
+
+The results are a little bit surprising, as Random Forest far and wide the best method. It seems that the best method is XXX, which gives an out-of-sample error of XXXX.For comparision, the accuracy of the original analysis was 98.2
+
+This study raised some interesting questions. Would K-folds have been a better method for cross-validation? Would the results have changed by preprocessing the data, i.e. normalized? Would PCA have improved the better prediction?
