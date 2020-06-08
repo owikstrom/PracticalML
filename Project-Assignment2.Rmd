@@ -5,7 +5,8 @@ date: "6/3/2020"
 output: html_document
 ---
 ### Executive Summary
-The purpose of the report is to build an alternate model for predicting how well certain gym exercises with a dumbbell are performed. As part of a previous study by P.C.U of Rio data was collected from motion sensors attached to wrist, arm, waist and dumbbell while performing the exercise correctly as well as in various incorrect ways. Using the same data, but alternate methods this study will compare the final model and results to the original study.  
+The purpose of the report is to build an alternate model for predicting how well certain gym exercises with a dumbbell are performed. As part of a previous study by P.C.U of Rio data was collected from motion sensors attached to wrist, arm, waist and dumbbell while performing the exercise correctly as well as in various incorrect ways. Starting from the original data, a selection of predictors was made using Recursive Feature Elimination and three different prediction methods tried, Linear Discriminant Analysis, Random Forest and boosting. The most accurate method, Random Forest, achieved an 99.5% out-of-sample accuracy.
+
 
 ```{r setup, include=FALSE}
 library(dplyr);library(caret);library(Hmisc)
@@ -70,23 +71,16 @@ results <- rfe(trainbis[,1:52], trainbis[,53], sizes=c(5,10,15,20,25,30,40,50), 
 ```
 
 ```{r}
-# summarize the results
 results
-# plot(results, type=c("g", "o"))
+
 ```
   
 From the output we can deduce that the optimal subset size is to include all 52 variables, but already with 10 variables it is possible to achieve close to 99% prediction rate. Interestingly the top predictors seem to be the belt sensors. Selecting a tradeoff between speed and accuracy, let's use the top 20 variables.   
 
 ### Method choice
-Applying what we learnt from the course, it will be interesting to see the efficiency of the different models. Let's try a few and compare.
+Applying what we learnt from the course, it will be interesting to see the efficiency of the different models. Let's try a few of the supposedly more efficient ones and compare, namely: Random Forest - rf, Boosting - gbm and Model based - lda.
 
-Random Forest, rf
-Boosting, gbm
-Model based, lda
-
-combining with RF
-
-```{r models, cache=TRUE}
+```{r models, cache=TRUE, message=FALSE}
 # Subset the selected predictors
 predictors <- predictors(results)
 predictors <- c(predictors[1:20], "classe")
@@ -94,7 +88,7 @@ trainmod <- trainbis %>% select(predictors, classe)
 
 modlda <- train(classe ~ ., method="lda", data=trainmod)
 modrf <- train(classe ~ ., method="rf", data=trainmod)
-modgbm <- train(classe ~ ., method="gbm", data=trainmod)
+modgbm <- train(classe ~ ., method="gbm", data=trainmod, verbose =FALSE)
 
 ```
 
@@ -107,22 +101,17 @@ predictions$gbm <- predict(modgbm, validate)
 
 ```
 
-
-
 ### Results & Discussion
 
 Testing our different models against the validation set gives the following results:
 ```{r plots }
-
-
-# Plot predictions vs models (table better?)
+# Plot predictions vs models 
 confusionMatrix(predictions$lda, predictions$reference)
 confusionMatrix(predictions$rf, predictions$reference)
 confusionMatrix(predictions$gbm, predictions$reference)
 
-
 ```
 
-The results are a little bit surprising, as Random Forest far and wide the best method. It seems that the best method is XXX, which gives an out-of-sample error of XXXX.For comparision, the accuracy of the original analysis was 98.2
+The results are a little bit surprising, as Random Forest was far and wide the best method with 99.4% accuracy, whereas Linear Discriminant Analysis accuracy is only 58%. Interestingly enough, the original study achieve an accuracy of 98.2%.
 
-This study raised some interesting questions. Would K-folds have been a better method for cross-validation? Would the results have changed by preprocessing the data, i.e. normalized? Would PCA have improved the better prediction?
+This study raised some interesting questions. Why caused LDA to be so inexact? Would the results have changed by preprocessing the data, i.e. normalized? Maybe PCA would have been better than RFE? Would the predictors be very dissimilar if selected by another method, such as LASSO?
